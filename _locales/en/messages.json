@@ -1,0 +1,30 @@
+{
+  "extensionName": {
+    "message": "Keep Tabs - Tab Manager",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "A powerful tab manager to save and organize your browser tabs into collections",
+    "description": "Description of the extension"
+  },
+  "extensionDefaultTitle": {
+    "message": "Keep Tabs",
+    "description": "Default title shown on extension icon hover"
+  },
+  "commandDescription": {
+    "message": "Open Keep Tabs Manager",
+    "description": "Description of the keyboard shortcut command"
+  },
+  "aiSuggestionsTitle": {
+    "message": "AI Smart Suggestions:",
+    "description": "Title for AI suggestions section"
+  },
+  "aiSuggestionsWhat": {
+    "message": "What is it: When you save open tabs as a new collection, we can use AI to automatically analyze the pages and suggest an appropriate name and description for the collection.",
+    "description": "Explanation of what AI suggestions feature does"
+  },
+  "aiSuggestionsWhy": {
+    "message": "Why it's useful: This will save you time on manually naming each new collection and help maintain a neatly organized workspace with smart, descriptive titles.",
+    "description": "Explanation of why AI suggestions are useful"
+  }
+} 
