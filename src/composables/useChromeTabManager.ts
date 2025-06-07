@@ -71,7 +71,9 @@ export async function useChromeTabManager() {
         id: tab.id?.toString() || uuidv4(),
         title: tab.title || 'Untitled',
         url: tab.url || '',
-        favicon: tab.favIconUrl,
+        favicon: (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) 
+          ? `chrome://favicon/${tab.url}` 
+          : undefined,
         pinned: tab.pinned,
         active: tab.active,
         groupId: tab.groupId && tab.groupId !== -1 ? tab.groupId : undefined,
@@ -108,7 +110,9 @@ export async function useChromeTabManager() {
           id: tab.id?.toString() || '',
           title: tab.title || '',
           url: tab.url || '',
-          favicon: tab.favIconUrl,
+          favicon: (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) 
+            ? `chrome://favicon/${tab.url}` 
+            : undefined,
           pinned: tab.pinned,
           active: tab.active,
           groupId: tab.groupId

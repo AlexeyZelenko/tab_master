@@ -1,0 +1,30 @@
+{
+  "extensionName": {
+    "message": "Keep Tabs - Менеджер вкладок",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Мощный менеджер для сохранения и организации ваших вкладок в коллекции",
+    "description": "Description of the extension"
+  },
+  "extensionDefaultTitle": {
+    "message": "Keep Tabs",
+    "description": "Default title shown on extension icon hover"
+  },
+  "commandDescription": {
+    "message": "Открыть менеджер Keep Tabs",
+    "description": "Description of the keyboard shortcut command"
+  },
+  "aiSuggestionsTitle": {
+    "message": "Умные AI-предложения:",
+    "description": "Title for AI suggestions section"
+  },
+  "aiSuggestionsWhat": {
+    "message": "Что это: Когда вы сохраняете открытые вкладки как новую коллекцию, мы можем использовать AI, чтобы автоматически проанализировать страницы и предложить подходящее название и описание для коллекции.",
+    "description": "Explanation of what AI suggestions feature does"
+  },
+  "aiSuggestionsWhy": {
+    "message": "Почему это полезно: Это сэкономит ваше время на ручном именовании каждой новой коллекции и поможет поддерживать аккуратно организованное рабочее пространство с умными и описательными названиями.",
+    "description": "Explanation of why AI suggestions are useful"
+  }
+} 
