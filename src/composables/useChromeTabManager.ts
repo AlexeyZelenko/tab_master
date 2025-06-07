@@ -1,5 +1,5 @@
 import { ref, computed, watch, toRaw } from 'vue';
-import type { Tab, Collection, AppState, TabGroup } from '../types';
+import type { Tab, Collection, AppState, TabGroup, TabGroupSelection } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'keep-tabs-data';
@@ -10,15 +10,18 @@ export async function useChromeTabManager() {
     currentTabs: [],
     tabGroups: [],
     searchQuery: '',
-    selectedCollection: null,
+    selectedCollection: null as Collection | TabGroupSelection | null,
     theme: 'dark',
-    autoSave: true
+    autoSave: true,
+    apiKey: '',
+    isAiEnabled: false
   });
 
   // Load data from chrome.storage
   const loadData = async () => {
     try {
       const result = await chrome.storage.local.get([STORAGE_KEY]);
+      console.log('Raw data from storage:', result[STORAGE_KEY]);
       
       if (result[STORAGE_KEY]) {
         const data = result[STORAGE_KEY];
@@ -30,8 +33,14 @@ export async function useChromeTabManager() {
             createdAt: new Date(c.createdAt),
             updatedAt: new Date(c.updatedAt),
             tabs: c.tabs || [] // Ensure tabs array exists
-          })) : []
+          })) : [],
+          apiKey: data.apiKey || '',
+          isAiEnabled: data.isAiEnabled || false,
         };
+        console.log('State after loading data:', {
+          apiKey: !!state.value.apiKey,
+          isAiEnabled: state.value.isAiEnabled
+        });
       }
       
       // Load current tabs from chrome.storage
@@ -43,7 +52,11 @@ export async function useChromeTabManager() {
         await loadCurrentTabs();
       }
       
-      console.log('Data loaded:', state.value.collections);
+      console.log('Data loaded:', {
+        apiKey: !!state.value.apiKey,
+        isAiEnabled: state.value.isAiEnabled,
+        collections: state.value.collections.length
+      });
     } catch (error) {
       console.error('Failed to load data:', error);
       state.value.collections = [];
@@ -55,7 +68,11 @@ export async function useChromeTabManager() {
     try {
       // Используем toRaw для преобразования reactive объектов в обычные
       const rawData = toRaw(state.value);
-      console.log('Saving data to chrome.storage:', rawData);
+      console.log('Saving data to chrome.storage:', {
+        apiKey: !!rawData.apiKey,
+        isAiEnabled: rawData.isAiEnabled,
+        collections: rawData.collections.length
+      });
       await chrome.storage.local.set({ [STORAGE_KEY]: rawData });
       console.log('Data saved successfully');
     } catch (error) {
@@ -71,9 +88,7 @@ export async function useChromeTabManager() {
         id: tab.id?.toString() || uuidv4(),
         title: tab.title || 'Untitled',
         url: tab.url || '',
-        favicon: (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) 
-          ? `chrome://favicon/${tab.url}` 
-          : undefined,
+        favicon: tab.favIconUrl,
         pinned: tab.pinned,
         active: tab.active,
         groupId: tab.groupId && tab.groupId !== -1 ? tab.groupId : undefined,
@@ -110,9 +125,7 @@ export async function useChromeTabManager() {
           id: tab.id?.toString() || '',
           title: tab.title || '',
           url: tab.url || '',
-          favicon: (tab.url && (tab.url.startsWith('http:') || tab.url.startsWith('https:'))) 
-            ? `chrome://favicon/${tab.url}` 
-            : undefined,
+          favicon: tab.favIconUrl,
           pinned: tab.pinned,
           active: tab.active,
           groupId: tab.groupId
@@ -207,7 +220,7 @@ export async function useChromeTabManager() {
     const index = state.value.collections.findIndex(c => c.id === id);
     if (index !== -1) {
       state.value.collections.splice(index, 1);
-      if (state.value.selectedCollection?.id === id) {
+      if (state.value.selectedCollection && 'id' in state.value.selectedCollection && state.value.selectedCollection.id === id) {
         state.value.selectedCollection = null;
       }
     }
@@ -243,6 +256,37 @@ export async function useChromeTabManager() {
     } catch (error) {
       console.error('Failed to restore collection:', error);
     }
+  };
+
+  const getAiSuggestion = async (tabs?: Tab[]) => {
+    if (!state.value.apiKey) {
+      throw new Error('API key is not set.');
+    }
+    const tabsToProcess = tabs || state.value.currentTabs;
+    if (!tabsToProcess || tabsToProcess.length === 0) {
+      return { name: '', description: '' };
+    }
+    const titles = tabsToProcess.map(tab => tab.title).join('\n');
+    const prompt = `Based on the following list of browser tab titles, generate a short, relevant name (2-4 words) and a one-sentence description for this collection. Return the response as a JSON object with "name" and "description" keys. Tab titles:\n${titles}`;
+  
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.value.apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`OpenAI API error: ${errorData.error.message}`);
+    }
+    const data = await response.json();
+    return JSON.parse(data.choices[0].message.content);
   };
 
   // Tab methods
@@ -347,36 +391,35 @@ export async function useChromeTabManager() {
   };
 
   const initManager = async () => {
-    console.log('Initializing Chrome tab manager...');
     await loadData();
-    await loadCurrentTabs();
-    await loadTabGroups();
+    await loadCurrentTabsAndGroups();
+
+    // Listen for tab changes
+    chrome.tabs.onUpdated.addListener(loadCurrentTabsAndGroups);
+    chrome.tabs.onRemoved.addListener(loadCurrentTabsAndGroups);
+    chrome.tabGroups.onUpdated.addListener(loadCurrentTabsAndGroups);
+    
     console.log('Chrome tab manager initialized');
-  };
-
-  // Initialize data
-  await initManager();
-  
-  // initializeSampleCollections();
-  // console.log('Sample collections initialized, final state:', state.value);
-
-  const result = {
-    state,
-    filteredCollections,
-    totalTabs,
-    createCollection,
-    updateCollection,
-    deleteCollection,
-    saveCurrentTabsAsCollection,
-    restoreCollection,
-    addTabToCollection,
-    removeTabFromCollection,
-    closeTab,
-    exportCollections,
-    importCollections,
-    loadCurrentTabs: loadCurrentTabsAndGroups,
-    saveData
+    
+    return {
+      state,
+      filteredCollections,
+      totalTabs,
+      createCollection,
+      updateCollection,
+      deleteCollection,
+      saveCurrentTabsAsCollection,
+      restoreCollection,
+      addTabToCollection,
+      removeTabFromCollection,
+      closeTab,
+      exportCollections,
+      importCollections,
+      getAiSuggestion,
+      loadCurrentTabs: loadCurrentTabsAndGroups,
+      saveData
+    };
   };
   
-  return result;
+  return initManager();
 }

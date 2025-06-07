@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue';
-import type { Tab, Collection, AppState } from '../types';
+import type { Tab, Collection, AppState, TabGroupSelection } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'keep-tabs-data';
@@ -10,9 +10,11 @@ export function useTabManager() {
     currentTabs: [],
     tabGroups: [],
     searchQuery: '',
-    selectedCollection: null,
+    selectedCollection: null as Collection | TabGroupSelection | null,
     theme: 'dark',
-    autoSave: true
+    autoSave: true,
+    apiKey: '',
+    isAiEnabled: false
   });
 
   // Load data from localStorage
@@ -212,7 +214,7 @@ export function useTabManager() {
     const index = state.value.collections.findIndex(c => c.id === id);
     if (index !== -1) {
       state.value.collections.splice(index, 1);
-      if (state.value.selectedCollection?.id === id) {
+      if (state.value.selectedCollection && 'id' in state.value.selectedCollection && state.value.selectedCollection.id === id) {
         state.value.selectedCollection = null;
       }
     }

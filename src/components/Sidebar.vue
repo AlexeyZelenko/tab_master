@@ -8,6 +8,9 @@
       </div>
       
       <div class="header-actions">
+        <button @click="$emit('openSettings')" class="settings-btn" title="Settings">
+          <Cog6ToothIcon class="w-5 h-5" />
+        </button>
         <button @click="toggleTheme" class="theme-toggle" :title="`Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`">
           <component :is="state.theme === 'dark' ? SunIcon : MoonIcon" class="w-5 h-5" />
         </button>
@@ -58,7 +61,7 @@
             </div>
           </div>
           <button
-            @click.stop="showSaveDialog = true"
+            @click.stop="$emit('openSaveDialog')"
             class="save-tabs-btn"
             title="Save current tabs as collection"
           >
@@ -206,33 +209,6 @@
       </div>
     </div>
 
-    <!-- Save Current Tabs Dialog -->
-    <div v-if="showSaveDialog" class="dialog-overlay" @click="showSaveDialog = false">
-      <div class="dialog" @click.stop>
-        <h3 class="dialog-title">Save Current Tabs</h3>
-        <input
-          v-model="saveCollectionName"
-          type="text"
-          placeholder="Collection name"
-          class="dialog-input"
-          @keyup.enter="saveCurrentTabs"
-        />
-        <textarea
-          v-model="saveCollectionDescription"
-          placeholder="Description (optional)"
-          class="dialog-textarea"
-        ></textarea>
-        <div class="dialog-actions">
-          <button @click="showSaveDialog = false" class="dialog-btn dialog-btn-secondary">
-            Cancel
-          </button>
-          <button @click="saveCurrentTabs" class="dialog-btn dialog-btn-primary">
-            Save {{ state.currentTabs.length }} tabs
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- Import File Input -->
     <input
       ref="fileInput"
@@ -259,7 +235,8 @@ import {
   MoonIcon,
   RectangleGroupIcon,
   ChevronRightIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  Cog6ToothIcon
 } from '@heroicons/vue/24/outline';
 import type { Collection } from '../types';
 
@@ -269,7 +246,7 @@ interface Props {
   totalTabs: number;
   createCollection: (name: string, description?: string) => Collection;
   deleteCollection: (id: string) => void;
-  saveCurrentTabsAsCollection: (name: string, description?: string) => Collection | Promise<Collection>;
+  saveCurrentTabsAsCollection: (name: string, description?: string) => Promise<Collection>;
   restoreCollection: (collection: Collection) => void;
   exportCollections: () => void;
   importCollections: (file: File) => Promise<void>;
@@ -277,19 +254,23 @@ interface Props {
 
 const props = defineProps<Props>();
 const emit = defineEmits<{
-  selectCollection: [collection: Collection | null];
-  toggleTheme: [];
+  (e: 'selectCollection', collection: Collection | null): void;
+  (e: 'toggleTheme'): void;
+  (e: 'openSettings'): void;
+  (e: 'openSaveDialog'): void;
+  (e: 'openCreateDialog'): void;
+  (e: 'deleteCollection', id: string): void;
+  (e: 'restoreCollection', collection: Collection): void;
+  (e: 'importCollections', file: File): void;
+  (e: 'exportCollections'): void;
 }>();
 
 const showCreateDialog = ref(false);
-const showSaveDialog = ref(false);
 const showingCurrentTabs = ref(false);
 const newCollectionName = ref('');
 const newCollectionDescription = ref('');
-const saveCollectionName = ref('');
-const saveCollectionDescription = ref('');
 const fileInput = ref<HTMLInputElement>();
-const tabGroupsCollapsed = ref(true);
+const tabGroupsCollapsed = ref(false);
 
 const selectCollection = (collection: Collection) => {
   showingCurrentTabs.value = false;
@@ -311,15 +292,6 @@ const createNewCollection = () => {
     newCollectionName.value = '';
     newCollectionDescription.value = '';
     showCreateDialog.value = false;
-  }
-};
-
-const saveCurrentTabs = async () => {
-  if (saveCollectionName.value.trim()) {
-    await props.saveCurrentTabsAsCollection(saveCollectionName.value.trim(), saveCollectionDescription.value.trim() || undefined);
-    saveCollectionName.value = '';
-    saveCollectionDescription.value = '';
-    showSaveDialog.value = false;
   }
 };
 

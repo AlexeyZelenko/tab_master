@@ -26,7 +26,12 @@
       </div>
       
       <div class="tab-favicon">
-        <img v-if="tab.favicon && type === 'current'" :src="tab.favicon" :alt="tab.title" class="favicon-img" />
+        <img 
+          v-if="tab.favicon && type === 'current'" 
+          :src="tab.favicon" 
+          :alt="tab.title" 
+          class="favicon-img"
+        />
         <div v-else class="favicon-placeholder">🌐</div>
       </div>
       

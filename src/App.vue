@@ -20,6 +20,9 @@
         :importCollections="tabManager.importCollections"
         @selectCollection="handleSelectCollection"
         @toggleTheme="toggleTheme"
+        @openSettings="openSettings"
+        @openSaveDialog="showSaveDialog = true"
+        @openCreateDialog="showCreateDialog = true"
       />
       
       <MainContent
@@ -43,6 +46,45 @@
       <div class="error-icon">❌</div>
       <div class="error-text">Failed to initialize Keep Tabs</div>
     </div>
+
+    <!-- Settings Dialog -->
+    <div v-if="showSettingsDialog" class="dialog-overlay" @click="showSettingsDialog = false">
+      <div class="dialog" @click.stop>
+        <h3 class="dialog-title">Settings</h3>
+        <div class="settings-group">
+          <h4 class="settings-subtitle">AI Suggestions</h4>
+          <div class="setting-item">
+            <label for="ai-enabled">Enable AI Features</label>
+            <input type="checkbox" id="ai-enabled" v-model="isAiEnabled" />
+          </div>
+          <p class="setting-description">
+            Allows the extension to suggest a name and description for new collections using AI. Requires an OpenAI API key.
+            <a href="#" @click.prevent="openAiGuide" class="guide-link">How does this work?</a>
+          </p>
+          <div class="setting-item" v-if="isAiEnabled">
+            <label for="api-key">OpenAI API Key</label>
+            <input
+              v-model="apiKey"
+              id="api-key"
+              type="password"
+              placeholder="sk-..."
+              class="dialog-input"
+            />
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button @click="closeSettings" class="dialog-btn dialog-btn-secondary">
+            Cancel
+          </button>
+          <button @click="saveSettings" class="dialog-btn dialog-btn-primary">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Guide Page -->
+    <AiGuide v-if="showAiGuide" @close="showAiGuide = false" />
 
     <!-- Global Create Collection Dialog -->
     <div v-if="showCreateDialog" class="dialog-overlay" @click="showCreateDialog = false">
@@ -75,6 +117,20 @@
     <div v-if="showSaveDialog" class="dialog-overlay" @click="showSaveDialog = false">
       <div class="dialog" @click.stop>
         <h3 class="dialog-title">Save Current Tabs</h3>
+        <div class="ai-suggestion-section" v-if="isAiFeatureAvailable">
+          <button @click="fetchAiSuggestion" :disabled="isAiLoading" class="dialog-btn dialog-btn-ai">
+            <span v-if="isAiLoading">✨ Thinking...</span>
+            <span v-else>✨ Suggest with AI</span>
+          </button>
+        </div>
+        <div class="ai-hint" v-else>
+          <p>
+            <span class="ai-icon">✨</span>
+            Want AI to suggest names and descriptions?
+            <button @click="openSettings" class="link-button">Enable AI features</button>
+            in settings.
+          </p>
+        </div>
         <input
           v-model="saveCollectionName"
           type="text"
@@ -104,6 +160,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import Sidebar from './components/Sidebar.vue';
 import MainContent from './components/MainContent.vue';
+import AiGuide from './components/AiGuide.vue';
 import type { Collection, TabGroupSelection } from './types';
 
 // Reactive state
@@ -118,6 +175,11 @@ const newCollectionName = ref('');
 const newCollectionDescription = ref('');
 const saveCollectionName = ref('');
 const saveCollectionDescription = ref('');
+const showSettingsDialog = ref(false);
+const apiKey = ref('');
+const isAiEnabled = ref(false);
+const isAiLoading = ref(false);
+const showAiGuide = ref(false);
 
 // Async initialization function
 async function initializeTabManager() {
@@ -165,6 +227,15 @@ onMounted(async () => {
 
 // Computed properties
 const theme = computed(() => tabManager.value?.state?.theme || 'light');
+const isAiFeatureAvailable = computed(() => {
+  const available = tabManager.value?.state.isAiEnabled && tabManager.value?.state.apiKey;
+  console.log('AI feature availability check:', {
+    isAiEnabled: tabManager.value?.state.isAiEnabled,
+    hasApiKey: !!tabManager.value?.state.apiKey,
+    isAvailable: available
+  });
+  return available;
+});
 
 const handleSelectCollection = (collection: Collection | TabGroupSelection | null) => {
   console.log('handleSelectCollection called with:', collection);
@@ -256,6 +327,63 @@ const handleAddTabToCollection = (collectionId: string, tab: any) => {
     console.log(`Tab "${tab.title}" added to collection "${collection?.name}"`);
   }
 };
+
+const openSettings = () => {
+  if (tabManager.value) {
+    apiKey.value = tabManager.value.state.apiKey;
+    isAiEnabled.value = tabManager.value.state.isAiEnabled;
+    console.log('Opening settings:', {
+      apiKey: !!tabManager.value.state.apiKey,
+      isAiEnabled: tabManager.value.state.isAiEnabled
+    });
+  }
+  showSettingsDialog.value = true;
+};
+
+const closeSettings = () => {
+  showSettingsDialog.value = false;
+};
+
+const saveSettings = () => {
+  if (tabManager.value) {
+    tabManager.value.state.apiKey = apiKey.value;
+    tabManager.value.state.isAiEnabled = isAiEnabled.value;
+    console.log('Saving settings:', {
+      apiKey: !!tabManager.value.state.apiKey,
+      isAiEnabled: tabManager.value.state.isAiEnabled
+    });
+  }
+  showSettingsDialog.value = false;
+};
+
+const fetchAiSuggestion = async () => {
+  if (!tabManager.value) return;
+  isAiLoading.value = true;
+  try {
+    const suggestion = await tabManager.value.getAiSuggestion();
+    saveCollectionName.value = suggestion.name;
+    saveCollectionDescription.value = suggestion.description;
+  } catch (error) {
+    console.error(error);
+    // Optionally, show an error to the user
+    alert((error as Error).message);
+  } finally {
+    isAiLoading.value = false;
+  }
+};
+
+const openAiGuide = () => {
+  showSettingsDialog.value = false;
+  showAiGuide.value = true;
+};
+
+// Watch for settings changes to sync with the state
+watch(showSettingsDialog, (isShowing) => {
+  if (isShowing && tabManager.value) {
+    apiKey.value = tabManager.value.state.apiKey;
+    isAiEnabled.value = tabManager.value.state.isAiEnabled;
+  }
+});
 </script>
 
 <style>
@@ -513,5 +641,83 @@ body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+.settings-group {
+  margin-bottom: 20px;
+}
+.settings-subtitle {
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 5px;
+}
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.setting-description {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: -5px;
+  margin-bottom: 15px;
+}
+
+.dialog-btn-ai {
+  background-color: #5a3ab3; /* A nice purple for AI */
+  color: white;
+  width: 100%;
+  margin-bottom: 15px;
+}
+.dialog-btn-ai:hover {
+  background-color: #4a2e9a;
+}
+
+.guide-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+.guide-link:hover {
+  text-decoration: underline;
+}
+
+.ai-hint {
+  background: var(--primary-bg);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.ai-hint p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ai-icon {
+  font-size: 1.25rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: var(--primary-hover);
 }
 </style>

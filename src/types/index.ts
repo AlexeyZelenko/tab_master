@@ -43,9 +43,11 @@ export interface AppState {
   currentTabs: Tab[];
   tabGroups: TabGroup[];
   searchQuery: string;
-  selectedCollection: Collection | null;
+  selectedCollection: Collection | TabGroupSelection | null;
   theme: 'light' | 'dark';
   autoSave: boolean;
+  apiKey: string;
+  isAiEnabled: boolean;
 }
 
 export interface TabGroupSelection {
